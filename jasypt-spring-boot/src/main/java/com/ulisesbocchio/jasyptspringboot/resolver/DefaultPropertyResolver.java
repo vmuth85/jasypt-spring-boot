@@ -16,10 +16,12 @@ import java.util.Optional;
  *
  * @author Ulises Bocchio
  * @version $Id: $Id
+ * @author 25.11.2026 by Viktor Muth - Prevent recursive placeholder resolution during environment binding.
  */
 public class DefaultPropertyResolver implements EncryptablePropertyResolver {
 
     private final Environment environment;
+    private final ThreadLocal<Boolean> resolvingPlaceholders = new ThreadLocal<>();
     private StringEncryptor encryptor;
     private EncryptablePropertyDetector detector;
 
@@ -52,12 +54,12 @@ public class DefaultPropertyResolver implements EncryptablePropertyResolver {
     @Override
     public String resolvePropertyValue(String value) {
         return Optional.ofNullable(value)
-                .map(environment::resolvePlaceholders)
+                .map(this::resolvePlaceholders)
                 .filter(detector::isEncrypted)
                 .map(resolvedValue -> {
                     try {
                         String unwrappedProperty = detector.unwrapEncryptedValue(resolvedValue.trim());
-                        String resolvedProperty = environment.resolvePlaceholders(unwrappedProperty);
+                        String resolvedProperty = resolvePlaceholders(unwrappedProperty);
                         return encryptor.decrypt(resolvedProperty);
                     } catch (EncryptionOperationNotPossibleException e) {
                         throw new DecryptionException("Unable to decrypt property: " + value + " resolved to: " + resolvedValue + ". Decryption of Properties failed,  make sure encryption/decryption " +
@@ -65,5 +67,21 @@ public class DefaultPropertyResolver implements EncryptablePropertyResolver {
                     }
                 })
                 .orElse(value);
+    }
+
+    /**
+     * Resolves placeholders only outside an active environment lookup. Boot 4 may enumerate the system environment
+     * while resolving a placeholder; nested resolution would re-enter that enumeration indefinitely.
+     */
+    private String resolvePlaceholders(String value) {
+        if (!value.contains("${") || Boolean.TRUE.equals(resolvingPlaceholders.get())) {
+            return value;
+        }
+        resolvingPlaceholders.set(true);
+        try {
+            return environment.resolvePlaceholders(value);
+        } finally {
+            resolvingPlaceholders.remove();
+        }
     }
 }

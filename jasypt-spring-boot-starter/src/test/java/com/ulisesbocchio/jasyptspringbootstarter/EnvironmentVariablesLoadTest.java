@@ -17,8 +17,15 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+/**
+ * Checks property binding and decryption of values supplied through environment variables.
+ *
+ * @author 25.11.2026 by Viktor Muth - Cover direct encrypted values and placeholder references.
+ */
 @ExtendWith(SystemStubsExtension.class)
-@SpringBootTest(classes = EnvironmentVariablesLoadTest.TestConfig.class)
+@SpringBootTest(
+        classes = EnvironmentVariablesLoadTest.TestConfig.class,
+        properties = "jasypt.encryptor.password=passphrase")
 public class EnvironmentVariablesLoadTest {
 
     @Autowired
@@ -26,7 +33,9 @@ public class EnvironmentVariablesLoadTest {
 
     @SystemStub
     private EnvironmentVariables environmentVariables =
-            new EnvironmentVariables("TEST_ENV_FOOSTRING", "test1", "TEST_ENV_BAR_STRING", "test2", "TEST_ENV_FOOLIST", "a1,b1", "TEST_ENV_BAR_LIST", "a2,b2", "TEST_ENV_STRINGMAP_K1", "v1", "TEST_ENV_LISTMAP_K2", "v2");
+            new EnvironmentVariables("TEST_ENV_FOOSTRING", "test1", "TEST_ENV_BAR_STRING", "test2", "TEST_ENV_FOOLIST", "a1,b1", "TEST_ENV_BAR_LIST", "a2,b2", "TEST_ENV_STRINGMAP_K1", "v1", "TEST_ENV_LISTMAP_K2", "v2",
+                    "TEST_ENV_SECRET", "ENC(pCRvr+EmDC1DjSjRisfBpPOHWBEBLMiDtcO9KIhZeKOcfYkn2wdPz4TwdE1zlxTl)",
+                    "TEST_ENV_SECRET_REFERENCE", "${test.env.secret}");
 
     @EnableEncryptableProperties
     @EnableConfigurationProperties(EnvironmentVariablesLoadTest.MyProperties.class)
@@ -50,6 +59,8 @@ public class EnvironmentVariablesLoadTest {
 
         assertNotNull(myProperties.getListMap());
         assertEquals("{k2=[v2]}", myProperties.getListMap().toString());
+        assertEquals("mypassword", myProperties.getSecret());
+        assertEquals("mypassword", myProperties.getSecretReference());
     }
 
     @ConfigurationProperties(prefix = "test.env")
@@ -61,6 +72,8 @@ public class EnvironmentVariablesLoadTest {
         private List<String> barList;
         private Map<String, String> stringMap;
         private Map<String, List<String>> listMap;
+        private String secret;
+        private String secretReference;
 
         public String getFooString() {
             return fooString;
@@ -108,6 +121,22 @@ public class EnvironmentVariablesLoadTest {
 
         public void setListMap(Map<String, List<String>> listMap) {
             this.listMap = listMap;
+        }
+
+        public String getSecret() {
+            return secret;
+        }
+
+        public void setSecret(String secret) {
+            this.secret = secret;
+        }
+
+        public String getSecretReference() {
+            return secretReference;
+        }
+
+        public void setSecretReference(String secretReference) {
+            this.secretReference = secretReference;
         }
     }
 }

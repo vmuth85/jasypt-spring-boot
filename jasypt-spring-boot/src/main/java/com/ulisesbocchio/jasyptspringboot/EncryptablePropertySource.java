@@ -2,17 +2,18 @@ package com.ulisesbocchio.jasyptspringboot;
 
 import org.springframework.boot.origin.Origin;
 import org.springframework.boot.origin.OriginLookup;
+import org.springframework.boot.env.PropertySourceInfo;
 import org.springframework.core.env.PropertySource;
 
 /**
- * <p>EncryptablePropertySource interface. Spring Boot 4's {@link OriginLookup} exposes only origin lookup;
- * the removed immutability and prefix methods must not be delegated here.</p>
+ * <p>EncryptablePropertySource interface. In Spring Boot 4, {@link PropertySourceInfo} supplies
+ * the immutability and prefix metadata previously exposed by {@link OriginLookup}.</p>
  *
  * @author Ulises Bocchio
  * @version $Id: $Id
- * @author 24.11.2026 by Viktor Muth - Adapted origin lookup to Spring Boot 4.
+ * @author 25.11.2026 by Viktor Muth - Preserve property source metadata with Spring Boot 4.
  */
-public interface EncryptablePropertySource<T> extends OriginLookup<String> {
+public interface EncryptablePropertySource<T> extends OriginLookup<String>, PropertySourceInfo {
 
     /**
      * <p>getDelegate.</p>
@@ -66,6 +67,24 @@ public interface EncryptablePropertySource<T> extends OriginLookup<String> {
             return ((OriginLookup<String>) getDelegate()).getOrigin(key);
         }
         return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    default boolean isImmutable() {
+        if (getDelegate() instanceof PropertySourceInfo propertySourceInfo) {
+            return propertySourceInfo.isImmutable();
+        }
+        return PropertySourceInfo.super.isImmutable();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    default String getPrefix() {
+        if (getDelegate() instanceof PropertySourceInfo propertySourceInfo) {
+            return propertySourceInfo.getPrefix();
+        }
+        return PropertySourceInfo.super.getPrefix();
     }
 
 }
